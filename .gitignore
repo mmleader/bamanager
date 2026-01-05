@@ -2,7 +2,7 @@
 build/bin/
 frontend/wailsjs/
 .wails/
-
+.ai_memory/
 # Go
 vendor/
 go.sum
