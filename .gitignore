@@ -1,6 +1,5 @@
 # Wails
 build/bin/
-build/windows/
 frontend/wailsjs/
 .wails/
 
