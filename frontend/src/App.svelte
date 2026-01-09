@@ -85,6 +85,14 @@
     showModal = true;
   }
 
+  function openDuplicateModal(instance) {
+    const copy = JSON.parse(JSON.stringify(instance));
+    copy.id = null; // Clear ID to treat as new
+    copy.name = copy.name + " (副本)";
+    editingInstance = copy;
+    showModal = true;
+  }
+
   onMount(() => {
     loadInstances();
     const interval = setInterval(loadInstances, 3000); // 定时同步状态
@@ -108,6 +116,7 @@
         onStart={handleStart}
         onStop={handleStop}
         onEdit={openEditModal}
+        onDuplicate={openDuplicateModal}
         onDelete={handleDelete}
       />
     {:else}

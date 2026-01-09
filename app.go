@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bsmanager/backend/config"
 	"bsmanager/backend/manager"
 	"bsmanager/backend/models"
 	"context"
@@ -12,12 +13,14 @@ import (
 type App struct {
 	ctx     context.Context
 	manager *manager.Manager
+	Config  *config.Config
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
 		manager: manager.NewManager(),
+		Config:  config.NewConfig(),
 	}
 }
 
@@ -25,6 +28,14 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+}
+
+func (a *App) beforeClose(ctx context.Context) (prevent bool) {
+	width, height := runtime.WindowGetSize(ctx)
+	a.Config.Width = width
+	a.Config.Height = height
+	a.Config.Save()
+	return false
 }
 
 func (a *App) ListInstances() []*models.BrowserInstance {

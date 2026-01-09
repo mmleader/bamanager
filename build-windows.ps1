@@ -1,3 +1,4 @@
+$OutputEncoding = [System.Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Write-Host "🚀 Starting Build for Windows..."
 
 # 1. Setup Environment
