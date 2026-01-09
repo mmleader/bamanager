@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -61,6 +62,15 @@ func (m *Manager) ListInstances() []*models.BrowserInstance {
 	for _, inst := range m.Instances {
 		result = append(result, inst)
 	}
+	
+	// Sort by Name, then ID
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Name == result[j].Name {
+			return result[i].ID < result[j].ID
+		}
+		return result[i].Name < result[j].Name
+	})
+
 	return result
 }
 
