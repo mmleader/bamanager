@@ -46,12 +46,59 @@
     if (result) userDataDir = result;
   }
 
+  function parseArgs(str) {
+    const args = [];
+    let current = '';
+    let quote = null;
+    let escaped = false;
+
+    for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+        
+        if (escaped) {
+            current += char;
+            escaped = false;
+            continue;
+        }
+
+        if (char === '\\') {
+            escaped = true;
+            continue;
+        }
+
+        if (quote) {
+            if (char === quote) {
+                quote = null;
+            } else {
+                current += char;
+            }
+        } else {
+            if (char === '"' || char === "'") {
+                quote = char;
+            } else if (char === ' ') {
+                if (current.length > 0) {
+                    args.push(current);
+                    current = '';
+                }
+            } else {
+                current += char;
+            }
+        }
+    }
+    
+    if (current.length > 0) {
+        args.push(current);
+    }
+    
+    return args;
+  }
+
   function handleSave() {
     if (!name || !path) {
       alert("请填写名称和浏览器路径");
       return;
     }
-    const args = argsString.split(' ').filter(a => a.trim() !== '');
+    const args = parseArgs(argsString);
     dispatch('save', {
       id: instance ? instance.id : null,
       name,
