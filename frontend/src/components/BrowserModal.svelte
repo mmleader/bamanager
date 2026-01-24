@@ -21,7 +21,7 @@
       name = instance.name || '';
       path = instance.path || '';
       userDataDir = instance.userDataDir || '';
-      argsString = (instance.args || []).join(' ');
+      argsString = formatArgs(instance.args || []);
       lastInstanceId = instance.id;
     } else {
       name = '';
@@ -44,6 +44,23 @@
   async function handleBrowseDir() {
     const result = await SelectDirectory();
     if (result) userDataDir = result;
+  }
+
+  function formatArgs(args) {
+    if (!args || args.length === 0) return '';
+    return args.map(arg => {
+        if (arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")) {
+            // Check if it's a key=value pair
+            if (arg.includes('=')) {
+                const parts = arg.split('=');
+                if (parts.length === 2) {
+                     return `${parts[0]}="${parts[1]}"`;
+                }
+            }
+            return `"${arg}"`;
+        }
+        return arg;
+    }).join(' ');
   }
 
   function parseArgs(str) {

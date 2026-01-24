@@ -33,3 +33,4 @@ frontend/.svelte-kit/
 # App Specific (Local testing)
 .bsmanager/
 instances.json
+frontend/package.json.md5
