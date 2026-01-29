@@ -8,12 +8,16 @@
     UpdateInstance, 
     DeleteInstance, 
     StartInstance, 
-    StopInstance 
+    StopInstance,
+    GetConfig,
+    SetMinimizeToTray
   } from '../wailsjs/go/main/App';
 
   let instances = [];
   let showModal = false;
+
   let editingInstance = null;
+  let minimizeToTray = false;
 
   async function loadInstances() {
     try {
@@ -93,7 +97,15 @@
     showModal = true;
   }
 
-  onMount(() => {
+  onMount(async () => {
+    try {
+      const config = await GetConfig();
+      if (config) {
+        minimizeToTray = config.minimize_to_tray;
+      }
+    } catch (e) {
+      console.error("加载配置失败", e);
+    }
     loadInstances();
     const interval = setInterval(loadInstances, 3000); // 定时同步状态
     return () => clearInterval(interval);
@@ -103,10 +115,17 @@
 <main class="container">
   <header>
     <h1>指纹浏览器管理器</h1>
-    <button class="btn btn-primary" on:click={openAddModal}>
-      <svg style="margin-right: 0.5rem;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      添加实例
-    </button>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <label class="toggle-switch">
+        <input type="checkbox" bind:checked={minimizeToTray} on:change={(e) => SetMinimizeToTray(e.target.checked)} />
+        <span class="slider"></span>
+        <span class="label-text">关闭时最小化到托盘</span>
+      </label>
+      <button class="btn btn-primary" on:click={openAddModal}>
+        <svg style="margin-right: 0.5rem;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        添加实例
+      </button>
+    </div>
   </header>
 
   <div class="grid">
@@ -136,4 +155,56 @@
 
 <style>
   /* 已经在 style.css 中定义了大部分基础样式 */
+  
+  /* Toggle Switch Styles */
+  .toggle-switch {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.9rem;
+    color: var(--text-main);
+  }
+
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute; /* Remove from flow */
+  }
+
+  .slider {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background-color: #cbd5e1; /* slate-300 */
+    border-radius: 9999px;
+    transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 50%;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  }
+
+  input:checked + .slider {
+    background-color: var(--primary-color);
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(20px);
+  }
+
+  .label-text {
+    font-weight: 500;
+  }
 </style>

@@ -7,8 +7,9 @@ import (
 )
 
 type Config struct {
-	Width  int `json:"width"`
-	Height int `json:"height"`
+	Width          int  `json:"width"`
+	Height         int  `json:"height"`
+	MinimizeToTray bool `json:"minimize_to_tray"`
 }
 
 func NewConfig() *Config {
