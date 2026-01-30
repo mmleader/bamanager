@@ -6,7 +6,7 @@ import (
 	"bsmanager/backend/models"
 	"context"
 
-	"github.com/getlantern/systray"
+	"github.com/energye/systray"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -101,19 +101,15 @@ func (a *App) onTrayReady() {
 	mShow := systray.AddMenuItem("显示主窗口", "Show Main Window")
 	mQuit := systray.AddMenuItem("退出", "Quit Application")
 
-	go func() {
-		for {
-			select {
-			case <-mShow.ClickedCh:
-				runtime.WindowShow(a.ctx)
-			case <-mQuit.ClickedCh:
-				a.isQuitting = true
-				systray.Quit()
-				runtime.Quit(a.ctx)
-				return
-			}
-		}
-	}()
+	mShow.Click(func() {
+		runtime.WindowShow(a.ctx)
+	})
+
+	mQuit.Click(func() {
+		a.isQuitting = true
+		systray.Quit()
+		runtime.Quit(a.ctx)
+	})
 }
 
 func (a *App) onTrayExit() {
