@@ -18,6 +18,7 @@
 
   let editingInstance = null;
   let minimizeToTray = false;
+  let isMiniMode = false;
 
   async function loadInstances() {
     try {
@@ -26,7 +27,6 @@
       console.error("加载列表失败:", err);
     }
   }
-
   async function handleSave(event) {
     const data = event.detail;
     try {
@@ -96,7 +96,6 @@
     editingInstance = copy;
     showModal = true;
   }
-
   onMount(async () => {
     try {
       const config = await GetConfig();
@@ -116,6 +115,11 @@
   <header>
     <h1>指纹浏览器管理器</h1>
     <div style="display: flex; align-items: center; gap: 1rem;">
+       <label class="toggle-switch">
+        <input type="checkbox" bind:checked={isMiniMode} />
+        <span class="slider"></span>
+        <span class="label-text">小卡片模式</span>
+      </label>
       <label class="toggle-switch">
         <input type="checkbox" bind:checked={minimizeToTray} on:change={(e) => SetMinimizeToTray(e.target.checked)} />
         <span class="slider"></span>
@@ -132,6 +136,7 @@
     {#each instances as instance (instance.id)}
       <BrowserCard 
         {instance} 
+        {isMiniMode}
         onStart={handleStart}
         onStop={handleStop}
         onEdit={openEditModal}
