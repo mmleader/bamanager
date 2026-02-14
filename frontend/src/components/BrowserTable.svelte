@@ -45,7 +45,7 @@
         <tr>
           <td>
             <div class="name-cell">
-              <strong>{instance.name}</strong>
+              <strong>{instance.sortNum}.{instance.name}</strong>
               <div class="id-text" title={instance.id}>#{instance.id.slice(0, 4)}</div>
             </div>
           </td>

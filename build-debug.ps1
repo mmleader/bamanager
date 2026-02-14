@@ -1,5 +1,5 @@
 $OutputEncoding = [System.Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Write-Host "🚀 Starting Build for Windows..."
+Write-Host "🚀 Starting DEBUG Build for Windows..."
 
 # 1. Setup Environment
 Write-Host "🔍 Detecting Go environment..."
@@ -12,8 +12,6 @@ try {
 if (-not $env:GOPATH) {
     if (Test-Path "$HOME\go") {
         $env:GOPATH = "$HOME\go"
-    } else {
-        Write-Warning "⚠️ GOPATH not found and $HOME\go does not exist."
     }
 }
 
@@ -25,17 +23,9 @@ foreach ($p in $pathsToAdd) {
     }
 }
 
-# 2. Check for Wails
-if (-not (Get-Command wails -ErrorAction SilentlyContinue)) {
-    Write-Error "❌ Error: 'wails' command not found even after searching GOPATH\bin."
-    Write-Host "Please ensure Wails is installed (go install github.com/wailsapp/wails/v2/cmd/wails@latest)"
-    Read-Host "Press Enter to exit..."
-    exit 1
-}
-
-# 3. Compile project
-Write-Host "📂 Compiling application..."
-wails build
+# 2. Compile project with -debug flag
+Write-Host "📂 Compiling application in DEBUG mode..."
+wails build -debug
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "❌ Build failed."
@@ -44,7 +34,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "✅ Build complete!"
+Write-Host "✅ DEBUG Build complete!"
 Write-Host "The executable can be found in: build\bin\bsmanager.exe"
+Write-Host "Run this executable from a terminal to see backend logs."
+Write-Host "Right-click anywhere in the app to open Frontend DevTools."
 Write-Host ""
 

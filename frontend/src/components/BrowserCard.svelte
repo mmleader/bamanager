@@ -19,19 +19,18 @@
   }
 </script>
 
-<div class="card" class:mini={isMiniMode}>
-  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: {isMiniMode ? '0' : '1rem'};">
+<div class="card" class:mini={minimalMode}>
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
     <div style="flex: 1; min-width: 0; margin-right: 0.5rem;">
-      <h3 style="font-size: 1.125rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title={instance.name}>{instance.name}</h3>
-      {#if !isMiniMode}
+      <h3 style="font-size: 1.125rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{instance.sortNum}.{instance.name}">{instance.sortNum}.{instance.name}</h3>
       <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
         <span style="width: 8px; height: 8px; border-radius: 50%; background-color: {statusColor}"></span>
         <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">{statusText}</span>
       </div>
-      {/if}
     </div>
     
-    {#if !isMiniMode}
+
+    
     <div class="actions" style="display: flex; gap: 0.5rem;">
       <button class="btn-icon" on:click={() => onEdit(instance)} title="编辑">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -43,21 +42,8 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
       </button>
     </div>
-    {:else}
-      <!-- Mini Mode Action: Only Start/Stop Button -->
-      {#if !instance.running}
-        <button class="btn btn-primary btn-sm" style="padding: 0.25rem 0.75rem;" on:click={() => onStart(instance.id)}>
-          启动
-        </button>
-      {:else}
-        <button class="btn btn-sm" style="padding: 0.25rem 0.75rem; border-color: var(--danger-color); color: var(--danger-color);" on:click={() => onStop(instance.id)}>
-          停止
-        </button>
-      {/if}
-    {/if}
   </div>
 
-  {#if !isMiniMode}
   <div class="card-body" style="margin-bottom: 1.5rem;">
     {#if !minimalMode}
       <div class="info-item">
@@ -74,24 +60,26 @@
       </div>
     {/if}
 
-    {#if instance.tags && instance.tags.length > 0}
-      <div class="info-item">
+      <div class="info-item" style="min-height: 2.5em;">
         <span class="label">标签:</span>
         <div class="tags-container">
-          {#each instance.tags as tag}
-             <span class="tag-badge">{tag}</span>
-          {/each}
+          {#if instance.tags && instance.tags.length > 0}
+            {#each instance.tags as tag}
+               <span class="tag-badge">{tag}</span>
+            {/each}
+          {:else}
+            <span class="text-muted" style="font-size: 0.75rem;">-</span>
+          {/if}
         </div>
       </div>
-    {/if}
 
     {#if minimalMode}
       <div class="info-item">
          <span class="label">代理信息:</span>
-         <div style="display: flex; align-items: start; gap: 0.5rem; justify-content: space-between;">
+         <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
            <span 
              class="value" 
-             style="white-space: normal; word-break: break-word; cursor: help; border-bottom: 1px dotted var(--text-muted);" 
+             style="white-space: normal; word-break: break-word; cursor: help; border-bottom: 1px dotted var(--text-muted); flex: 1;" 
              title={instance.proxyDetail || '暂无详细信息'}
            >
              {#if instance.proxyRegion}
@@ -102,7 +90,7 @@
            </span>
            <div style="display: flex; gap: 0.25rem; flex-shrink: 0;">
              <button class="btn-xs" on:click={() => onCheckProxy(instance.id, 'cn')}>CN</button>
-             <button class="btn-xs" on:click={() => onCheckProxy(instance.id, 'global')}>Global</button>
+             <button class="btn-xs" on:click={() => onCheckProxy(instance.id, 'global')}>GL</button>
            </div>
          </div>
       </div>
@@ -120,7 +108,7 @@
       </button>
     {/if}
   </div>
-  {/if}
+
 </div>
 
 <style>
@@ -179,5 +167,20 @@
   }
   .btn-xs:hover {
       background-color: #f8fafc;
+  }
+
+  /* Minimal Mode Styles */
+  .card.mini .card-header {
+    margin-bottom: 0 !important; /* Remove bottom margin in header */
+    padding-bottom: 0.5rem; /* Reduce padding inside header if needed */
+  }
+  .card.mini .card-body {
+    margin-bottom: 0.5rem !important; /* Reduce body bottom margin */
+  }
+  .card.mini h3 {
+    font-size: 1rem !important; /* Smaller title */
+  }
+  .card.mini .info-item {
+    margin-bottom: 0.25rem !important; /* Compact items */
   }
 </style>

@@ -31,6 +31,7 @@
       instances = await ListInstances() || [];
     } catch (err) {
       console.error("加载列表失败:", err);
+      alert("配置加载失败: " + err);
     }
   }
   async function handleSave(event) {
@@ -41,6 +42,7 @@
         const instToUpdate = instances.find(i => i.id === data.id);
         const updated = {
             ...instToUpdate,
+            sortNum: data.sortNum,
             name: data.name,
             path: data.path,
             userDataDir: data.userDataDir,
@@ -49,9 +51,10 @@
         };
         await UpdateInstance(updated);
       } else {
-        await AddInstance(data.name, data.path, data.userDataDir, data.args, data.tags);
+        await AddInstance(data.sortNum, data.name, data.path, data.userDataDir, data.args, data.tags);
       }
       showModal = false;
+      await loadInstances();
       await loadInstances();
     } catch (err) {
       alert("保存失败: " + err);
@@ -171,7 +174,7 @@
       onCheckProxy={handleCheckProxy}
     />
   {:else}
-    <div class="grid">
+    <div class="grid" class:minimal={minimalMode}>
       {#each instances as instance (instance.id)}
         <BrowserCard 
           {instance} 
@@ -201,6 +204,10 @@
 
 <style>
   /* 已经在 style.css 中定义了大部分基础样式 */
+  .grid.minimal {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+  }
+  
   
   /* Toggle Switch Styles */
   .toggle-switch {

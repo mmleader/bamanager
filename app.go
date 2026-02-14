@@ -61,12 +61,12 @@ func (a *App) SetMinimizeToTray(enabled bool) {
 	a.Config.Save()
 }
 
-func (a *App) ListInstances() []*models.BrowserInstance {
+func (a *App) ListInstances() ([]*models.BrowserInstance, error) {
 	return a.manager.ListInstances()
 }
 
-func (a *App) AddInstance(name, path, userDataDir string, args, tags []string) *models.BrowserInstance {
-	return a.manager.AddInstance(name, path, userDataDir, args, tags)
+func (a *App) AddInstance(sortNum int, name, path, userDataDir string, args, tags []string) (*models.BrowserInstance, error) {
+	return a.manager.AddInstance(sortNum, name, path, userDataDir, args, tags)
 }
 
 func (a *App) UpdateInstance(inst *models.BrowserInstance) error {

@@ -7,6 +7,8 @@
   export let show = false;
   export let instance = null;
 
+  let sortNum = 0;
+
   let name = '';
   let path = '';
   let userDataDir = '';
@@ -19,6 +21,7 @@
   $: if (show && (show !== lastShow || (instance && instance.id !== lastInstanceId))) {
     // 仅在模态框由关闭转开启，或者切换了不同的实例时，才同步数据
     if (instance) {
+      sortNum = instance.sortNum || 0;
       name = instance.name || '';
       path = instance.path || '';
       userDataDir = instance.userDataDir || '';
@@ -26,6 +29,7 @@
       tagsString = (instance.tags || []).join(', ');
       lastInstanceId = instance.id;
     } else {
+      sortNum = 0; // Default to 0 or maybe next available? For now 0.
       name = '';
       path = '';
       userDataDir = '';
@@ -122,6 +126,7 @@
     const tags = tagsString.split(/[,，]/).map(t => t.trim()).filter(t => t.length > 0);
     dispatch('save', {
       id: instance ? instance.id : null,
+      sortNum: parseInt(sortNum),
       name,
       path,
       userDataDir,
@@ -140,6 +145,11 @@
     <div class="modal">
       <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;">{instance ? '编辑实例' : '添加实例'}</h2>
       
+      <div class="form-group">
+        <label>序号 (ID)</label>
+        <input class="form-control" type="number" bind:value={sortNum} placeholder="数字，用于排序" />
+      </div>
+
       <div class="form-group">
         <label>名称</label>
         <input class="form-control" type="text" bind:value={name} placeholder="例如：账号 A" />

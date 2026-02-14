@@ -14,7 +14,9 @@ var assets embed.FS
 func main() {
 	// Create an instance of the app structure
 	app := NewApp()
-	app.Config.Load()
+	if err := app.Config.Load(); err != nil {
+		println("Error loading config:", err.Error())
+	}
 
 	// Create application with options
 	err := wails.Run(&options.App{

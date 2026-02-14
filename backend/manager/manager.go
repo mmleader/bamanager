@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,6 +25,7 @@ type Manager struct {
 	Instances map[string]*models.BrowserInstance
 	mu        sync.RWMutex
 	dataPath  string
+	initError error
 }
 
 func NewManager() *Manager {
@@ -37,53 +39,99 @@ func NewManager() *Manager {
 		Instances: make(map[string]*models.BrowserInstance),
 		dataPath:  filepath.Join(configDir, "instances.json"),
 	}
-	m.load()
+	if err := m.load(); err != nil {
+		fmt.Printf("Error loading instances: %v\n", err)
+		m.initError = err
+	}
 	go m.startStatusWatcher()
 	return m
 }
 
-func (m *Manager) load() {
+func (m *Manager) load() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	data, err := os.ReadFile(m.dataPath)
 	if err != nil {
-		return
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("read file error: %w", err)
 	}
-	json.Unmarshal(data, &m.Instances)
+	if err := json.Unmarshal(data, &m.Instances); err != nil {
+		return fmt.Errorf("unmarshal error: %w", err)
+	}
+
+	// Migration: Check if SortNum is 0 and Name has "ID.Name" pattern
+	migrated := false
+	for _, inst := range m.Instances {
+		if inst.SortNum == 0 && strings.Contains(inst.Name, ".") {
+			parts := strings.SplitN(inst.Name, ".", 2)
+			if len(parts) == 2 {
+				if num, err := strconv.Atoi(parts[0]); err == nil {
+					inst.SortNum = num
+					inst.Name = parts[1] // Keep only the name part
+					migrated = true
+				}
+			}
+		}
+	}
+
+	if migrated {
+		fmt.Println("Migrated instances to use SortNum, saving...")
+		// We can't call save() directly because we are holding the lock and save() might not need lock but it's called inside load which holds lock.
+		// Actually save() doesn't lock but load() holds lock. safe to call save() ?
+		// m.save() implementation: checks m.initError.
+		// Let's implement saveInternal to avoid issues or just write file directly here or risk it.
+		// Wait, save() doesn't lock. It's safe to call.
+		if err := m.save(); err != nil {
+			fmt.Printf("Error saving migrated data: %v\n", err)
+		}
+	}
+
+	return nil
 }
 
-func (m *Manager) save() {
-	data, _ := json.MarshalIndent(m.Instances, "", "  ")
-	os.WriteFile(m.dataPath, data, 0644)
+func (m *Manager) save() error {
+	if m.initError != nil {
+		fmt.Println("Warning: Skipping save due to initialization error to prevent data loss")
+		return fmt.Errorf("cannot save: initialization failed: %w", m.initError)
+	}
+	data, err := json.MarshalIndent(m.Instances, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(m.dataPath, data, 0644)
 }
 
-func (m *Manager) ListInstances() []*models.BrowserInstance {
+func (m *Manager) ListInstances() ([]*models.BrowserInstance, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
+	if m.initError != nil {
+		return nil, m.initError
+	}
 
 	var result []*models.BrowserInstance
 	for _, inst := range m.Instances {
 		result = append(result, inst)
 	}
-	
-	// Sort by Name, then ID
+
+	// Sort by SortNum
 	sort.Slice(result, func(i, j int) bool {
-		if result[i].Name == result[j].Name {
-			return result[i].ID < result[j].ID
-		}
-		return result[i].Name < result[j].Name
+		return result[i].SortNum < result[j].SortNum
 	})
 
-	return result
+	return result, nil
 }
 
-func (m *Manager) AddInstance(name, path, userDataDir string, args, tags []string) *models.BrowserInstance {
+func (m *Manager) AddInstance(sortNum int, name, path, userDataDir string, args, tags []string) (*models.BrowserInstance, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	inst := &models.BrowserInstance{
 		ID:          uuid.New().String(),
+		SortNum:     sortNum,
 		Name:        name,
 		Path:        path,
 		UserDataDir: userDataDir,
@@ -93,8 +141,8 @@ func (m *Manager) AddInstance(name, path, userDataDir string, args, tags []strin
 		UpdatedAt:   time.Now(),
 	}
 	m.Instances[inst.ID] = inst
-	m.save()
-	return inst
+	err := m.save()
+	return inst, err
 }
 
 func (m *Manager) UpdateInstance(inst *models.BrowserInstance) error {
@@ -106,8 +154,7 @@ func (m *Manager) UpdateInstance(inst *models.BrowserInstance) error {
 	}
 	inst.UpdatedAt = time.Now()
 	m.Instances[inst.ID] = inst
-	m.save()
-	return nil
+	return m.save()
 }
 
 func (m *Manager) DeleteInstance(id string) error {
@@ -119,8 +166,7 @@ func (m *Manager) DeleteInstance(id string) error {
 			return fmt.Errorf("cannot delete a running instance")
 		}
 		delete(m.Instances, id)
-		m.save()
-		return nil
+		return m.save()
 	}
 	return fmt.Errorf("instance not found")
 }
@@ -154,8 +200,9 @@ func (m *Manager) StartInstance(id string) error {
 	inst.Running = true
 	m.mu.Unlock()
 
+	// Save state
 	m.save()
-	
+
 	go func(id string, pid int) {
 		cmd.Wait()
 		m.mu.Lock()
@@ -194,7 +241,7 @@ func (m *Manager) StopInstance(id string) error {
 		process.Signal(syscall.SIGTERM)
 		time.Sleep(500 * time.Millisecond)
 	}
-	
+
 	process.Kill()
 	inst.Running = false
 	inst.PID = 0
@@ -227,7 +274,7 @@ func isProcessRunning(pid int) bool {
 	if pid <= 0 {
 		return false
 	}
-	
+
 	if runtime.GOOS != "windows" {
 		process, err := os.FindProcess(pid)
 		if err != nil {
@@ -357,7 +404,7 @@ func (m *Manager) CheckInstanceProxy(id, target string) (map[string]interface{},
 			region = "Parse Error"
 		}
 	}
-	
+
 	// Update instance
 	m.mu.Lock()
 	if inst, ok := m.Instances[id]; ok {
