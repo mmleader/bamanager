@@ -11,6 +11,7 @@
   let path = '';
   let userDataDir = '';
   let argsString = '';
+  let tagsString = '';
 
   let lastShow = false;
   let lastInstanceId = null;
@@ -22,12 +23,14 @@
       path = instance.path || '';
       userDataDir = instance.userDataDir || '';
       argsString = formatArgs(instance.args || []);
+      tagsString = (instance.tags || []).join(', ');
       lastInstanceId = instance.id;
     } else {
       name = '';
       path = '';
       userDataDir = '';
       argsString = '';
+      tagsString = '';
       lastInstanceId = null;
     }
     lastShow = show;
@@ -116,12 +119,14 @@
       return;
     }
     const args = parseArgs(argsString);
+    const tags = tagsString.split(/[,，]/).map(t => t.trim()).filter(t => t.length > 0);
     dispatch('save', {
       id: instance ? instance.id : null,
       name,
       path,
       userDataDir,
-      args
+      args,
+      tags
     });
   }
 
@@ -159,6 +164,11 @@
       <div class="form-group">
         <label>启动参数 (空格分隔)</label>
         <textarea class="form-control" rows="3" bind:value={argsString} placeholder="--incognito --proxy-server=..." style="resize: vertical;"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>标签 (逗号分隔)</label>
+        <input class="form-control" type="text" bind:value={tagsString} placeholder="工作, 娱乐, 测试" />
       </div>
 
       <div style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: flex-end;">

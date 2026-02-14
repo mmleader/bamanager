@@ -5,6 +5,7 @@ import (
 	"bsmanager/backend/manager"
 	"bsmanager/backend/models"
 	"context"
+	stdRuntime "runtime"
 
 	"github.com/energye/systray"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -30,7 +31,10 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	go systray.Run(a.onTrayReady, a.onTrayExit)
+	go func() {
+		stdRuntime.LockOSThread()
+		systray.Run(a.onTrayReady, a.onTrayExit)
+	}()
 }
 
 func (a *App) beforeClose(ctx context.Context) (prevent bool) {
@@ -61,8 +65,8 @@ func (a *App) ListInstances() []*models.BrowserInstance {
 	return a.manager.ListInstances()
 }
 
-func (a *App) AddInstance(name, path, userDataDir string, args []string) *models.BrowserInstance {
-	return a.manager.AddInstance(name, path, userDataDir, args)
+func (a *App) AddInstance(name, path, userDataDir string, args, tags []string) *models.BrowserInstance {
+	return a.manager.AddInstance(name, path, userDataDir, args, tags)
 }
 
 func (a *App) UpdateInstance(inst *models.BrowserInstance) error {
@@ -79,6 +83,10 @@ func (a *App) StartInstance(id string) error {
 
 func (a *App) StopInstance(id string) error {
 	return a.manager.StopInstance(id)
+}
+
+func (a *App) CheckProxy(id, target string) (map[string]interface{}, error) {
+	return a.manager.CheckInstanceProxy(id, target)
 }
 
 func (a *App) SelectFile() (string, error) {

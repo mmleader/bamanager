@@ -1,13 +1,22 @@
 <script>
   export let instance;
+  export let minimalMode = false;
   export let onStart;
   export let onStop;
   export let onEdit;
   export let onDuplicate;
   export let onDelete;
+  export let onCheckProxy;
 
   $: statusColor = instance.running ? 'var(--success-color)' : 'var(--text-muted)';
   $: statusText = instance.running ? '运行中' : '已停止';
+
+  function getLatencyColor(latency) {
+    if (!latency) return 'var(--text-muted)';
+    if (latency < 100) return 'var(--success-color)';
+    if (latency < 300) return '#f59e0b'; // warning
+    return 'var(--danger-color)';
+  }
 </script>
 
 <div class="card">
@@ -33,18 +42,54 @@
   </div>
 
   <div class="card-body" style="margin-bottom: 1.5rem;">
-    <div class="info-item">
-      <span class="label">启动路径:</span>
-      <span class="value" title={instance.path}>{instance.path}</span>
-    </div>
-    <div class="info-item">
-      <span class="label">数据目录:</span>
-      <span class="value" title={instance.userDataDir}>{instance.userDataDir || '默认'}</span>
-    </div>
-    <div class="info-item">
+    {#if !minimalMode}
+      <div class="info-item">
+        <span class="label">启动路径:</span>
+        <span class="value" title={instance.path}>{instance.path}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">数据目录:</span>
+        <span class="value" title={instance.userDataDir}>{instance.userDataDir || '默认'}</span>
+      </div>
+      <div class="info-item">
         <span class="label">参数:</span>
         <span class="value">{instance.args.join(' ') || '无'}</span>
       </div>
+    {/if}
+
+    {#if instance.tags && instance.tags.length > 0}
+      <div class="info-item">
+        <span class="label">标签:</span>
+        <div class="tags-container">
+          {#each instance.tags as tag}
+             <span class="tag-badge">{tag}</span>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
+    {#if minimalMode}
+      <div class="info-item">
+         <span class="label">代理信息:</span>
+         <div style="display: flex; align-items: start; gap: 0.5rem; justify-content: space-between;">
+           <span 
+             class="value" 
+             style="white-space: normal; word-break: break-word; cursor: help; border-bottom: 1px dotted var(--text-muted);" 
+             title={instance.proxyDetail || '暂无详细信息'}
+           >
+             {#if instance.proxyRegion}
+               {instance.proxyRegion} <span style="color: {getLatencyColor(instance.proxyLatency)}; font-weight: 500;">{instance.proxyLatency}ms</span>
+             {:else}
+               未检测
+             {/if}
+           </span>
+           <div style="display: flex; gap: 0.25rem; flex-shrink: 0;">
+             <button class="btn-xs" on:click={() => onCheckProxy(instance.id, 'cn')}>CN</button>
+             <button class="btn-xs" on:click={() => onCheckProxy(instance.id, 'global')}>Global</button>
+           </div>
+         </div>
+      </div>
+    {/if}
   </div>
 
   <div class="card-footer" style="display: flex; gap: 0.75rem;">
@@ -92,5 +137,29 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  .tag-badge {
+    background-color: #f1f5f9;
+    color: var(--text-muted);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.625rem;
+  }
+  .btn-xs {
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    background-color: white;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    cursor: pointer;
+    color: var(--primary-color);
+  }
+  .btn-xs:hover {
+      background-color: #f8fafc;
   }
 </style>

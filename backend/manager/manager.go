@@ -4,11 +4,15 @@ import (
 	"bsmanager/backend/models"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -74,7 +78,7 @@ func (m *Manager) ListInstances() []*models.BrowserInstance {
 	return result
 }
 
-func (m *Manager) AddInstance(name, path, userDataDir string, args []string) *models.BrowserInstance {
+func (m *Manager) AddInstance(name, path, userDataDir string, args, tags []string) *models.BrowserInstance {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -84,6 +88,7 @@ func (m *Manager) AddInstance(name, path, userDataDir string, args []string) *mo
 		Path:        path,
 		UserDataDir: userDataDir,
 		Args:        args,
+		Tags:        tags,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -236,4 +241,136 @@ func isProcessRunning(pid int) bool {
 	// 实际开发中可以使用更多 Windows API
 	process, err := os.FindProcess(pid)
 	return err == nil && process != nil
+}
+
+func (m *Manager) CheckInstanceProxy(id, target string) (map[string]interface{}, error) {
+	m.mu.Lock()
+	inst, ok := m.Instances[id]
+	if !ok {
+		m.mu.Unlock()
+		return nil, fmt.Errorf("instance not found")
+	}
+	args := inst.Args
+	m.mu.Unlock() // Unlock early to perform network request
+
+	// Parse proxy from args
+	var proxyURL string
+	for _, arg := range args {
+		if len(arg) > 15 && arg[:15] == "--proxy-server=" {
+			proxyURL = arg[15:]
+			break
+		}
+	}
+
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+	}
+
+	if proxyURL != "" {
+		if !strings.HasPrefix(proxyURL, "http") && !strings.HasPrefix(proxyURL, "socks") {
+			proxyURL = "http://" + proxyURL
+		}
+		u, err := url.Parse(proxyURL)
+		if err == nil {
+			client.Transport = &http.Transport{
+				Proxy: http.ProxyURL(u),
+			}
+		}
+	}
+
+	var checkURL string
+	if target == "cn" {
+		checkURL = "https://myip.ipip.net"
+	} else {
+		// global (default)
+		checkURL = "http://ip-api.com/json"
+	}
+
+	start := time.Now()
+	resp, err := client.Get(checkURL)
+	latency := time.Since(start).Milliseconds()
+
+	if err != nil {
+		return nil, fmt.Errorf("network error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	content := string(body)
+	var region string
+	var detail string
+
+	if target == "cn" {
+		// myip.ipip.net returns text: "当前 IP：1.2.3.4  来自于：中国 广东 深圳  电信"
+		detail = strings.TrimSpace(content)
+		parts := strings.Split(detail, "来自于：")
+		if len(parts) > 1 {
+			locInfo := strings.TrimSpace(parts[1])
+			// Split by spaces to get country, province, city
+			locParts := strings.Fields(locInfo)
+			if len(locParts) > 0 {
+				country := locParts[0]
+				code := "UNKNOWN"
+				switch country {
+				case "中国":
+					code = "CN"
+				case "香港", "中国香港":
+					code = "HK"
+				case "澳门", "中国澳门":
+					code = "MO"
+				case "台湾", "中国台湾":
+					code = "TW"
+				default:
+					// If it's something else, try to use first 2 chars of country or mapped manually if needed
+					// For now, just keep original first word if not matched
+					code = country
+				}
+
+				region = code
+				// Append province if available and not same as country (e.g. for CN)
+				if len(locParts) > 1 && (code == "CN" || code == "TW") {
+					region += " " + locParts[1]
+				}
+			} else {
+				region = locInfo
+			}
+		} else {
+			region = detail
+		}
+	} else {
+		// ip-api.com returns JSON
+		detail = content
+		var result map[string]interface{}
+		if err := json.Unmarshal(body, &result); err == nil {
+			if code, ok := result["countryCode"].(string); ok {
+				region = code
+			} else if country, ok := result["country"].(string); ok {
+				region = country
+			} else {
+				region = "Unknown"
+			}
+		} else {
+			region = "Parse Error"
+		}
+	}
+	
+	// Update instance
+	m.mu.Lock()
+	if inst, ok := m.Instances[id]; ok {
+		inst.ProxyRegion = region
+		inst.ProxyLatency = latency
+		inst.ProxyDetail = detail
+		m.save()
+	}
+	m.mu.Unlock()
+
+	return map[string]interface{}{
+		"region":  region,
+		"latency": latency,
+		"detail":  detail,
+	}, nil
 }
