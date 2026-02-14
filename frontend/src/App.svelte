@@ -33,7 +33,6 @@
       console.error("加载列表失败:", err);
     }
   }
-
   async function handleSave(event) {
     const data = event.detail;
     try {
@@ -116,7 +115,6 @@
     editingInstance = copy;
     showModal = true;
   }
-
   onMount(async () => {
     try {
       const config = await GetConfig();
