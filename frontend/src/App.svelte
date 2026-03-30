@@ -55,7 +55,8 @@
             userDataDir: data.userDataDir,
             args: data.args,
             tags: data.tags,
-            proxyId: data.proxyId || ''
+            proxyId: data.proxyId || '',
+            incognito: data.incognito || false
         };
         await UpdateInstance(updated);
       } else {
@@ -68,6 +69,7 @@
       }
       showModal = false;
       await loadInstances();
+      await loadProxies();
     } catch (err) {
       alert("保存失败: " + err);
     }
@@ -104,6 +106,19 @@
   async function handleCheckProxyDirect(proxyId, target) {
     const result = await CheckProxyDirect(proxyId, target);
     return result;
+  }
+
+  async function handleToggleIncognito(id, incognito) {
+    try {
+      const inst = instances.find(i => i.id === id);
+      if (inst) {
+        const updated = { ...inst, incognito };
+        await UpdateInstance(updated);
+        await loadInstances();
+      }
+    } catch (err) {
+      alert("切换无痕模式失败: " + err);
+    }
   }
 
   function openAddModal() {
@@ -215,6 +230,7 @@
       onEdit={openEditModal}
       onDuplicate={openDuplicateModal}
       onDelete={handleDelete}
+      onToggleIncognito={handleToggleIncognito}
     />
   {:else}
     <div class="grid" class:minimal={minimalMode}>
@@ -228,6 +244,7 @@
           onEdit={openEditModal}
           onDuplicate={openDuplicateModal}
           onDelete={handleDelete}
+          onToggleIncognito={handleToggleIncognito}
         />
       {:else}
         <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; background: white; border-radius: 0.75rem; border: 1px dashed var(--border-color); color: var(--text-muted);">
@@ -242,7 +259,7 @@
     instance={editingInstance}
     {proxies}
     on:save={handleSave} 
-    on:close={() => showModal = false} 
+    on:close={() => { showModal = false; loadInstances(); }} 
   />
 
   <ProxyManagerComp
@@ -251,7 +268,7 @@
     onCheckProxy={handleCheckProxyDirect}
     on:save={handleProxySave}
     on:delete={handleProxyDelete}
-    on:close={() => showProxyManager = false}
+    on:close={() => { showProxyManager = false; loadProxies(); }}
   />
 </main>
 

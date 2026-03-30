@@ -7,6 +7,7 @@
   export let onEdit;
   export let onDuplicate;
   export let onDelete;
+  export let onToggleIncognito;
 
   let selectedProxies = {};
 
@@ -61,11 +62,21 @@
             </div>
           </td>
           <td>
-            {#if instance.running}
-              <span class="badge success">运行中</span>
-            {:else}
-              <span class="badge muted">已停止</span>
-            {/if}
+            <div class="status-cell">
+              {#if instance.running}
+                <span class="badge success">运行中</span>
+              {:else}
+                <span class="badge muted">已停止</span>
+              {/if}
+              <button
+                class="incognito-btn-sm"
+                class:active={instance.incognito}
+                title={instance.incognito ? '无痕模式：已开启' : '无痕模式：已关闭'}
+                on:click={() => onToggleIncognito(instance.id, !instance.incognito)}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+            </div>
           </td>
           <td>
             {#if instance.tags && instance.tags.length > 0}
@@ -332,5 +343,35 @@
   }
   .btn-xs:hover {
       background-color: #f8fafc;
+  }
+
+  .status-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .incognito-btn-sm {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.2rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    background: #f8fafc;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .incognito-btn-sm:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+  }
+  .incognito-btn-sm.active {
+    background: #312e81;
+    color: white;
+    border-color: #312e81;
+  }
+  .incognito-btn-sm.active:hover {
+    background: #3730a3;
   }
 </style>

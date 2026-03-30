@@ -195,6 +195,9 @@ func (m *Manager) StartInstanceWithProxy(id string, proxyID string) error {
 	if inst.UserDataDir != "" {
 		args = append(args, fmt.Sprintf("--user-data-dir=%s", inst.UserDataDir))
 	}
+	if inst.Incognito {
+		args = append(args, "--incognito")
+	}
 
 	// proxyID == "none" 表示明确不使用代理
 	// proxyID == "" 表示使用实例默认配置的代理

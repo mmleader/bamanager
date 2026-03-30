@@ -7,6 +7,7 @@
   export let onEdit;
   export let onDuplicate;
   export let onDelete;
+  export let onToggleIncognito;
 
   let selectedProxyId = 'none';
   let _lastInstId = null;
@@ -71,7 +72,18 @@
     {/if}
 
       <div class="info-item" style="min-height: 2.5em;">
-        <span class="label">标签:</span>
+        <div class="label-row">
+          <span class="label" style="margin-bottom: 0;">标签:</span>
+          <button
+            class="incognito-btn"
+            class:active={instance.incognito}
+            title={instance.incognito ? '无痕模式：已开启（点击关闭）' : '无痕模式：已关闭（点击开启）'}
+            on:click={() => onToggleIncognito(instance.id, !instance.incognito)}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            无痕
+          </button>
+        </div>
         <div class="tags-container">
           {#if instance.tags && instance.tags.length > 0}
             {#each instance.tags as tag}
@@ -170,18 +182,54 @@
     appearance: auto;
   }
 
+  .label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.125rem;
+  }
+  .incognito-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    background: #f8fafc;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .incognito-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+  }
+  .incognito-btn.active {
+    background: #312e81;
+    color: white;
+    border-color: #312e81;
+  }
+  .incognito-btn.active:hover {
+    background: #3730a3;
+  }
+
   /* Minimal Mode Styles */
   .card.mini .card-header {
-    margin-bottom: 0 !important; /* Remove bottom margin in header */
-    padding-bottom: 0.5rem; /* Reduce padding inside header if needed */
+    margin-bottom: 0 !important;
+    padding-bottom: 0.5rem;
   }
   .card.mini .card-body {
-    margin-bottom: 0.5rem !important; /* Reduce body bottom margin */
+    margin-bottom: 0.5rem !important;
   }
   .card.mini h3 {
-    font-size: 1rem !important; /* Smaller title */
+    font-size: 1rem !important;
   }
   .card.mini .info-item {
-    margin-bottom: 0.25rem !important; /* Compact items */
+    margin-bottom: 0.25rem !important;
   }
 </style>

@@ -16,6 +16,7 @@
   let argsString = '';
   let tagsString = '';
   let proxyId = '';
+  let incognito = false;
 
   let lastShow = false;
   let lastInstanceId = null;
@@ -30,6 +31,7 @@
       argsString = formatArgs(instance.args || []);
       tagsString = (instance.tags || []).join(', ');
       proxyId = instance.proxyId || '';
+      incognito = instance.incognito || false;
       lastInstanceId = instance.id;
     } else {
       sortNum = 0; // Default to 0 or maybe next available? For now 0.
@@ -39,6 +41,7 @@
       argsString = '';
       tagsString = '';
       proxyId = '';
+      incognito = false;
       lastInstanceId = null;
     }
     lastShow = show;
@@ -136,7 +139,8 @@
       userDataDir,
       args,
       tags,
-      proxyId
+      proxyId,
+      incognito
     });
   }
 
@@ -196,6 +200,13 @@
         <input class="form-control" type="text" bind:value={tagsString} placeholder="工作, 娱乐, 测试" />
       </div>
 
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={incognito} />
+          <span>无痕模式（启动时使用 --incognito 参数）</span>
+        </label>
+      </div>
+
       <div style="display: flex; gap: 1rem; margin-top: 2rem; justify-content: flex-end;">
         <button class="btn" on:click={handleClose}>取消</button>
         <button class="btn btn-primary" on:click={handleSave}>保存配置</button>
@@ -208,5 +219,18 @@
   textarea.form-control {
     font-family: monospace;
     font-size: 0.75rem;
+  }
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--text-main);
+  }
+  .checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
   }
 </style>
