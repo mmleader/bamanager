@@ -26,6 +26,7 @@ type Manager struct {
 	mu        sync.RWMutex
 	dataPath  string
 	initError error
+	proxyMgr  *ProxyManager
 }
 
 func NewManager() *Manager {
@@ -35,9 +36,11 @@ func NewManager() *Manager {
 		os.MkdirAll(configDir, 0755)
 	}
 
+	proxyMgr := NewProxyManager()
 	m := &Manager{
 		Instances: make(map[string]*models.BrowserInstance),
 		dataPath:  filepath.Join(configDir, "instances.json"),
+		proxyMgr:  proxyMgr,
 	}
 	if err := m.load(); err != nil {
 		fmt.Printf("Error loading instances: %v\n", err)
@@ -172,6 +175,10 @@ func (m *Manager) DeleteInstance(id string) error {
 }
 
 func (m *Manager) StartInstance(id string) error {
+	return m.StartInstanceWithProxy(id, "")
+}
+
+func (m *Manager) StartInstanceWithProxy(id string, proxyID string) error {
 	m.mu.Lock()
 	inst, ok := m.Instances[id]
 	if !ok {
@@ -187,6 +194,30 @@ func (m *Manager) StartInstance(id string) error {
 	args := append([]string{}, inst.Args...)
 	if inst.UserDataDir != "" {
 		args = append(args, fmt.Sprintf("--user-data-dir=%s", inst.UserDataDir))
+	}
+
+	// proxyID == "none" 表示明确不使用代理
+	// proxyID == "" 表示使用实例默认配置的代理
+	actualProxyID := proxyID
+	if actualProxyID == "" {
+		actualProxyID = inst.ProxyID
+	}
+	if actualProxyID == "none" {
+		actualProxyID = ""
+	}
+	if actualProxyID != "" {
+		proxyURL := m.proxyMgr.GetProxyURL(actualProxyID)
+		if proxyURL != "" {
+			// 移除 args 中已有的 --proxy-server 参数
+			var filteredArgs []string
+			for _, arg := range args {
+				if len(arg) >= 15 && arg[:15] == "--proxy-server=" {
+					continue
+				}
+				filteredArgs = append(filteredArgs, arg)
+			}
+			args = append(filteredArgs, fmt.Sprintf("--proxy-server=%s", proxyURL))
+		}
 	}
 
 	cmd := exec.Command(inst.Path, args...)
@@ -297,15 +328,22 @@ func (m *Manager) CheckInstanceProxy(id, target string) (map[string]interface{},
 		m.mu.Unlock()
 		return nil, fmt.Errorf("instance not found")
 	}
+	proxyID := inst.ProxyID
 	args := inst.Args
 	m.mu.Unlock() // Unlock early to perform network request
 
-	// Parse proxy from args
+	// 优先从 ProxyID 获取代理URL，兼容旧的 args 方式
 	var proxyURL string
-	for _, arg := range args {
-		if len(arg) > 15 && arg[:15] == "--proxy-server=" {
-			proxyURL = arg[15:]
-			break
+	if proxyID != "" {
+		proxyURL = m.proxyMgr.GetProxyURL(proxyID)
+	}
+	if proxyURL == "" {
+		// Fallback: parse proxy from args
+		for _, arg := range args {
+			if len(arg) > 15 && arg[:15] == "--proxy-server=" {
+				proxyURL = arg[15:]
+				break
+			}
 		}
 	}
 
@@ -420,4 +458,137 @@ func (m *Manager) CheckInstanceProxy(id, target string) (map[string]interface{},
 		"latency": latency,
 		"detail":  detail,
 	}, nil
+}
+
+// CheckProxyDirect 直接通过代理ID检测代理（不依赖浏览器实例）
+func (m *Manager) CheckProxyDirect(proxyID, target string) (map[string]interface{}, error) {
+	proxyURL := m.proxyMgr.GetProxyURL(proxyID)
+	if proxyURL == "" {
+		return nil, fmt.Errorf("proxy not found")
+	}
+	return m.doCheckProxy(proxyURL, target)
+}
+
+// doCheckProxy 通用代理检测逻辑
+func (m *Manager) doCheckProxy(proxyURL, target string) (map[string]interface{}, error) {
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+	}
+
+	if proxyURL != "" {
+		if !strings.HasPrefix(proxyURL, "http") && !strings.HasPrefix(proxyURL, "socks") {
+			proxyURL = "http://" + proxyURL
+		}
+		u, err := url.Parse(proxyURL)
+		if err == nil {
+			client.Transport = &http.Transport{
+				Proxy: http.ProxyURL(u),
+			}
+		}
+	}
+
+	var checkURL string
+	if target == "cn" {
+		checkURL = "https://myip.ipip.net"
+	} else {
+		checkURL = "http://ip-api.com/json"
+	}
+
+	start := time.Now()
+	resp, err := client.Get(checkURL)
+	latency := time.Since(start).Milliseconds()
+
+	if err != nil {
+		return nil, fmt.Errorf("network error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	content := string(body)
+	var region string
+	var detail string
+
+	if target == "cn" {
+		detail = strings.TrimSpace(content)
+		parts := strings.Split(detail, "来自于：")
+		if len(parts) > 1 {
+			locInfo := strings.TrimSpace(parts[1])
+			locParts := strings.Fields(locInfo)
+			if len(locParts) > 0 {
+				country := locParts[0]
+				code := "UNKNOWN"
+				switch country {
+				case "中国":
+					code = "CN"
+				case "香港", "中国香港":
+					code = "HK"
+				case "澳门", "中国澳门":
+					code = "MO"
+				case "台湾", "中国台湾":
+					code = "TW"
+				default:
+					code = country
+				}
+				region = code
+				if len(locParts) > 1 && (code == "CN" || code == "TW") {
+					region += " " + locParts[1]
+				}
+			} else {
+				region = locInfo
+			}
+		} else {
+			region = detail
+		}
+	} else {
+		detail = content
+		var result map[string]interface{}
+		if err := json.Unmarshal(body, &result); err == nil {
+			if code, ok := result["countryCode"].(string); ok {
+				region = code
+			} else if country, ok := result["country"].(string); ok {
+				region = country
+			} else {
+				region = "Unknown"
+			}
+		} else {
+			region = "Parse Error"
+		}
+	}
+
+	return map[string]interface{}{
+		"region":  region,
+		"latency": latency,
+		"detail":  detail,
+	}, nil
+}
+
+// Proxy management methods - delegate to ProxyManager
+
+func (m *Manager) ListProxies() []*models.ProxyConfig {
+	return m.proxyMgr.ListProxies()
+}
+
+func (m *Manager) AddProxy(name, protocol, host string, port int, username, password string) (*models.ProxyConfig, error) {
+	return m.proxyMgr.AddProxy(name, protocol, host, port, username, password)
+}
+
+func (m *Manager) UpdateProxy(proxy *models.ProxyConfig) error {
+	return m.proxyMgr.UpdateProxy(proxy)
+}
+
+func (m *Manager) DeleteProxy(id string) error {
+	// 检查是否有实例在使用此代理
+	m.mu.RLock()
+	for _, inst := range m.Instances {
+		if inst.ProxyID == id {
+			m.mu.RUnlock()
+			return fmt.Errorf("代理正在被实例 \"%s\" 使用，无法删除", inst.Name)
+		}
+	}
+	m.mu.RUnlock()
+	return m.proxyMgr.DeleteProxy(id)
 }

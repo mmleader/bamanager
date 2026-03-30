@@ -6,6 +6,7 @@
 
   export let show = false;
   export let instance = null;
+  export let proxies = [];
 
   let sortNum = 0;
 
@@ -14,6 +15,7 @@
   let userDataDir = '';
   let argsString = '';
   let tagsString = '';
+  let proxyId = '';
 
   let lastShow = false;
   let lastInstanceId = null;
@@ -27,6 +29,7 @@
       userDataDir = instance.userDataDir || '';
       argsString = formatArgs(instance.args || []);
       tagsString = (instance.tags || []).join(', ');
+      proxyId = instance.proxyId || '';
       lastInstanceId = instance.id;
     } else {
       sortNum = 0; // Default to 0 or maybe next available? For now 0.
@@ -35,6 +38,7 @@
       userDataDir = '';
       argsString = '';
       tagsString = '';
+      proxyId = '';
       lastInstanceId = null;
     }
     lastShow = show;
@@ -131,7 +135,8 @@
       path,
       userDataDir,
       args,
-      tags
+      tags,
+      proxyId
     });
   }
 
@@ -173,7 +178,17 @@
 
       <div class="form-group">
         <label>启动参数 (空格分隔)</label>
-        <textarea class="form-control" rows="3" bind:value={argsString} placeholder="--incognito --proxy-server=..." style="resize: vertical;"></textarea>
+        <textarea class="form-control" rows="3" bind:value={argsString} placeholder="--incognito --no-sandbox" style="resize: vertical;"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>代理配置</label>
+        <select class="form-control" bind:value={proxyId}>
+          <option value="">不使用代理</option>
+          {#each proxies as p}
+            <option value={p.id}>{p.name} ({p.protocol}://{p.host}:{p.port})</option>
+          {/each}
+        </select>
       </div>
 
       <div class="form-group">

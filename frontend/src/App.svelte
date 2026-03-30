@@ -3,20 +3,27 @@
   import BrowserCard from './components/BrowserCard.svelte';
   import BrowserModal from './components/BrowserModal.svelte';
   import BrowserTable from './components/BrowserTable.svelte';
+  import ProxyManagerComp from './components/ProxyManager.svelte';
   import { 
     ListInstances, 
     AddInstance, 
     UpdateInstance, 
     DeleteInstance, 
-    StartInstance, 
+    StartInstanceWithProxy, 
     StopInstance,
     GetConfig,
     SetMinimizeToTray,
-    CheckProxy
+    CheckProxyDirect,
+    ListProxies,
+    AddProxy,
+    UpdateProxy,
+    DeleteProxy
   } from '../wailsjs/go/main/App';
 
   let instances = [];
+  let proxies = [];
   let showModal = false;
+  let showProxyManager = false;
 
   let editingInstance = null;
   let minimizeToTray = false; // 默认值，之后通过 GetConfig 更新
@@ -47,23 +54,28 @@
             path: data.path,
             userDataDir: data.userDataDir,
             args: data.args,
-            tags: data.tags
+            tags: data.tags,
+            proxyId: data.proxyId || ''
         };
         await UpdateInstance(updated);
       } else {
-        await AddInstance(data.sortNum, data.name, data.path, data.userDataDir, data.args, data.tags);
+        const inst = await AddInstance(data.sortNum, data.name, data.path, data.userDataDir, data.args, data.tags);
+        // 如果选了代理，需要更新实例的 proxyId
+        if (data.proxyId && inst) {
+          inst.proxyId = data.proxyId;
+          await UpdateInstance(inst);
+        }
       }
       showModal = false;
-      await loadInstances();
       await loadInstances();
     } catch (err) {
       alert("保存失败: " + err);
     }
   }
 
-  async function handleStart(id) {
+  async function handleStart(id, proxyId = '') {
     try {
-      await StartInstance(id);
+      await StartInstanceWithProxy(id, proxyId);
       await loadInstances();
     } catch (err) {
       alert("启动失败: " + err);
@@ -89,16 +101,9 @@
     }
   }
 
-  async function handleCheckProxy(id, target = 'global') {
-    // 乐观更新 UI 或显示加载状态（可选，这里简单处理直接等待）
-    // 实际可以通过 toast 提示 "正在检测..."
-    try {
-      const result = await CheckProxy(id, target);
-      // alert("代理位置: " + result.region);
-      await loadInstances(); // 刷新列表以显示最新位置
-    } catch (err) {
-      alert("检测失败: " + err);
-    }
+  async function handleCheckProxyDirect(proxyId, target) {
+    const result = await CheckProxyDirect(proxyId, target);
+    return result;
   }
 
   function openAddModal() {
@@ -118,6 +123,39 @@
     editingInstance = copy;
     showModal = true;
   }
+
+  // 代理管理相关函数
+  async function loadProxies() {
+    try {
+      proxies = await ListProxies() || [];
+    } catch (err) {
+      console.error("加载代理列表失败:", err);
+    }
+  }
+
+  async function handleProxySave(event) {
+    const data = event.detail;
+    try {
+      if (data.id) {
+        await UpdateProxy(data);
+      } else {
+        await AddProxy(data.name, data.protocol, data.host, data.port, data.username, data.password);
+      }
+      await loadProxies();
+    } catch (err) {
+      alert("保存代理失败: " + err);
+    }
+  }
+
+  async function handleProxyDelete(event) {
+    try {
+      await DeleteProxy(event.detail.id);
+      await loadProxies();
+    } catch (err) {
+      alert("删除代理失败: " + err);
+    }
+  }
+
   onMount(async () => {
     try {
       const config = await GetConfig();
@@ -128,6 +166,7 @@
       console.error("加载配置失败", e);
     }
     loadInstances();
+    loadProxies();
     const interval = setInterval(loadInstances, 3000); // 定时同步状态
     return () => clearInterval(interval);
   });
@@ -155,6 +194,10 @@
         <span class="slider"></span>
         <span class="label-text">关闭最小化</span>
       </label>
+      <button class="btn" style="border: 1px solid var(--border-color);" on:click={() => showProxyManager = true}>
+        <svg style="margin-right: 0.5rem;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        代理管理
+      </button>
       <button class="btn btn-primary" on:click={openAddModal}>
         <svg style="margin-right: 0.5rem;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         添加实例
@@ -166,12 +209,12 @@
     <BrowserTable 
       {instances}
       {minimalMode}
+      {proxies}
       onStart={handleStart}
       onStop={handleStop}
       onEdit={openEditModal}
       onDuplicate={openDuplicateModal}
       onDelete={handleDelete}
-      onCheckProxy={handleCheckProxy}
     />
   {:else}
     <div class="grid" class:minimal={minimalMode}>
@@ -179,12 +222,12 @@
         <BrowserCard 
           {instance} 
           {minimalMode}
+          {proxies}
           onStart={handleStart}
           onStop={handleStop}
           onEdit={openEditModal}
           onDuplicate={openDuplicateModal}
           onDelete={handleDelete}
-          onCheckProxy={handleCheckProxy}
         />
       {:else}
         <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; background: white; border-radius: 0.75rem; border: 1px dashed var(--border-color); color: var(--text-muted);">
@@ -196,9 +239,19 @@
 
   <BrowserModal 
     show={showModal} 
-    instance={editingInstance} 
+    instance={editingInstance}
+    {proxies}
     on:save={handleSave} 
     on:close={() => showModal = false} 
+  />
+
+  <ProxyManagerComp
+    show={showProxyManager}
+    {proxies}
+    onCheckProxy={handleCheckProxyDirect}
+    on:save={handleProxySave}
+    on:delete={handleProxyDelete}
+    on:close={() => showProxyManager = false}
   />
 </main>
 

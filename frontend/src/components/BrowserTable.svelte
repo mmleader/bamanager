@@ -1,34 +1,45 @@
 <script>
   export let instances = [];
   export let minimalMode = false;
+  export let proxies = [];
   export let onStart;
   export let onStop;
   export let onEdit;
   export let onDuplicate;
   export let onDelete;
-  export let onCheckProxy;
+
+  let selectedProxies = {};
+
+  // 默认选中实例已配置的代理
+  $: {
+    for (const inst of instances) {
+      if (!(inst.id in selectedProxies)) {
+        selectedProxies[inst.id] = inst.proxyId || 'none';
+      }
+    }
+  }
+
+  function getProxyName(proxyId) {
+    if (!proxyId) return '-';
+    const p = proxies.find(p => p.id === proxyId);
+    return p ? p.name : '未知';
+  }
 
   $: columns = minimalMode ? [
     { label: '名称', field: 'name', width: '13%' },
     { label: '状态', field: 'status', width: '10%' },
     { label: '标签', field: 'tags', width: '40%' },
-    { label: '代理位置', field: 'proxy', width: '17%' },
+    { label: '代理', field: 'proxy', width: '17%' },
     { label: '操作', field: 'actions', width: '20%' }
   ] : [
-    { label: '名称', field: 'name', width: '20%' },
-    { label: '状态', field: 'status', width: '10%' },
+    { label: '名称', field: 'name', width: '18%' },
+    { label: '状态', field: 'status', width: '8%' },
     { label: '标签', field: 'tags', width: '15%' },
-    { label: '路径', field: 'path', width: '25%' },
-    { label: '参数', field: 'args', width: '15%' },
+    { label: '路径', field: 'path', width: '20%' },
+    { label: '代理', field: 'proxy', width: '12%' },
+    { label: '参数', field: 'args', width: '12%' },
     { label: '操作', field: 'actions', width: '15%' }
   ];
-
-  function getLatencyColor(latency) {
-    if (!latency) return 'var(--text-muted)';
-    if (latency < 100) return 'var(--success-color)';
-    if (latency < 300) return '#f59e0b'; // warning
-    return 'var(--danger-color)';
-  }
 </script>
 
 <div class="table-container">
@@ -69,27 +80,25 @@
           </td>
           {#if minimalMode}
             <td>
-               <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
-                 <span 
-                   title={instance.proxyDetail || '暂无详细信息'}
-                   style="cursor: help; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; display: inline-block;"
-                 >
-                   {#if instance.proxyRegion}
-                     {instance.proxyRegion} <span style="color: {getLatencyColor(instance.proxyLatency)}; font-weight: 500;">{instance.proxyLatency}ms</span>
-                   {:else}
-                     -
-                   {/if}
-                 </span>
-                 <div style="display: flex; gap: 0.25rem;">
-                   <button class="btn-xs" title="检测 CN" on:click={() => onCheckProxy(instance.id, 'cn')}>CN</button>
-                   <button class="btn-xs" title="检测 Global" on:click={() => onCheckProxy(instance.id, 'global')}>GL</button>
-                 </div>
-               </div>
+              <select class="proxy-select-sm" bind:value={selectedProxies[instance.id]}>
+                <option value="none">无代理</option>
+                {#each proxies as p}
+                  <option value={p.id}>{p.name}</option>
+                {/each}
+              </select>
             </td>
           {:else}
             <td>
               <div class="path-text" title={instance.path}>{instance.path}</div>
               <div class="path-subtext" title={instance.userDataDir}>{instance.userDataDir || '默认数据目录'}</div>
+            </td>
+            <td>
+              <select class="proxy-select-sm" bind:value={selectedProxies[instance.id]}>
+                <option value="none">无代理</option>
+                {#each proxies as p}
+                  <option value={p.id}>{p.name}</option>
+                {/each}
+              </select>
             </td>
             <td>
               <div class="args-text" title={instance.args ? instance.args.join(' ') : ''}>{instance.args ? instance.args.join(' ') : '-'}</div>
@@ -98,7 +107,7 @@
           <td>
             <div class="actions">
               {#if !instance.running}
-                <button class="btn-sm btn-primary" on:click={() => onStart(instance.id)}>启动</button>
+                <button class="btn-sm btn-primary" on:click={() => onStart(instance.id, selectedProxies[instance.id] || '')}>启动</button>
               {:else}
                 <button class="btn-sm btn-danger" on:click={() => onStop(instance.id)}>停止</button>
               {/if}
@@ -224,6 +233,16 @@
     max-width: 200px;
   }
 
+  .proxy-text {
+    font-size: 0.8125rem;
+    color: var(--primary-color);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+  }
+
   .args-text {
     white-space: nowrap;
     overflow: hidden;
@@ -232,6 +251,17 @@
     color: var(--text-muted);
     font-family: monospace;
     font-size: 0.75rem;
+  }
+
+  .proxy-select-sm {
+    padding: 0.2rem 0.375rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    color: var(--text-main);
+    background: white;
+    cursor: pointer;
+    max-width: 100px;
   }
 
   .actions {

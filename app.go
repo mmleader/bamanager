@@ -81,12 +81,36 @@ func (a *App) StartInstance(id string) error {
 	return a.manager.StartInstance(id)
 }
 
+func (a *App) StartInstanceWithProxy(id, proxyID string) error {
+	return a.manager.StartInstanceWithProxy(id, proxyID)
+}
+
 func (a *App) StopInstance(id string) error {
 	return a.manager.StopInstance(id)
 }
 
 func (a *App) CheckProxy(id, target string) (map[string]interface{}, error) {
 	return a.manager.CheckInstanceProxy(id, target)
+}
+
+func (a *App) CheckProxyDirect(proxyID, target string) (map[string]interface{}, error) {
+	return a.manager.CheckProxyDirect(proxyID, target)
+}
+
+func (a *App) ListProxies() []*models.ProxyConfig {
+	return a.manager.ListProxies()
+}
+
+func (a *App) AddProxy(name, protocol, host string, port int, username, password string) (*models.ProxyConfig, error) {
+	return a.manager.AddProxy(name, protocol, host, port, username, password)
+}
+
+func (a *App) UpdateProxy(proxy *models.ProxyConfig) error {
+	return a.manager.UpdateProxy(proxy)
+}
+
+func (a *App) DeleteProxy(id string) error {
+	return a.manager.DeleteProxy(id)
 }
 
 func (a *App) SelectFile() (string, error) {

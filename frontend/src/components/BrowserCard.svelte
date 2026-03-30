@@ -1,22 +1,28 @@
 <script>
   export let instance;
   export let minimalMode = false;
+  export let proxies = [];
   export let onStart;
   export let onStop;
   export let onEdit;
   export let onDuplicate;
   export let onDelete;
-  export let onCheckProxy;
+
+  let selectedProxyId = 'none';
+  let _lastInstId = null;
+  $: if (instance && instance.id !== _lastInstId) {
+    selectedProxyId = instance.proxyId || 'none';
+    _lastInstId = instance.id;
+  }
+
+  $: proxyName = (() => {
+    if (!instance.proxyId) return '';
+    const p = proxies.find(p => p.id === instance.proxyId);
+    return p ? p.name : '未知代理';
+  })();
 
   $: statusColor = instance.running ? 'var(--success-color)' : 'var(--text-muted)';
   $: statusText = instance.running ? '运行中' : '已停止';
-
-  function getLatencyColor(latency) {
-    if (!latency) return 'var(--text-muted)';
-    if (latency < 100) return 'var(--success-color)';
-    if (latency < 300) return '#f59e0b'; // warning
-    return 'var(--danger-color)';
-  }
 </script>
 
 <div class="card" class:mini={minimalMode}>
@@ -58,6 +64,10 @@
         <span class="label">参数:</span>
         <span class="value">{instance.args.join(' ') || '无'}</span>
       </div>
+      <div class="info-item">
+        <span class="label">代理:</span>
+        <span class="value">{proxyName || '不使用代理'}</span>
+      </div>
     {/if}
 
       <div class="info-item" style="min-height: 2.5em;">
@@ -73,35 +83,21 @@
         </div>
       </div>
 
-    {#if minimalMode}
-      <div class="info-item">
-         <span class="label">代理信息:</span>
-         <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: space-between;">
-           <span 
-             class="value" 
-             style="white-space: normal; word-break: break-word; cursor: help; border-bottom: 1px dotted var(--text-muted); flex: 1;" 
-             title={instance.proxyDetail || '暂无详细信息'}
-           >
-             {#if instance.proxyRegion}
-               {instance.proxyRegion} <span style="color: {getLatencyColor(instance.proxyLatency)}; font-weight: 500;">{instance.proxyLatency}ms</span>
-             {:else}
-               未检测
-             {/if}
-           </span>
-           <div style="display: flex; gap: 0.25rem; flex-shrink: 0;">
-             <button class="btn-xs" on:click={() => onCheckProxy(instance.id, 'cn')}>CN</button>
-             <button class="btn-xs" on:click={() => onCheckProxy(instance.id, 'global')}>GL</button>
-           </div>
-         </div>
-      </div>
-    {/if}
   </div>
 
-  <div class="card-footer" style="display: flex; gap: 0.75rem;">
+  <div class="card-footer">
     {#if !instance.running}
-      <button class="btn btn-primary" style="flex: 1;" on:click={() => onStart(instance.id)}>
-        启动浏览器
-      </button>
+      <div class="start-group">
+        <select class="proxy-select" bind:value={selectedProxyId}>
+          <option value="none">不使用代理</option>
+          {#each proxies as p}
+            <option value={p.id}>{p.name}</option>
+          {/each}
+        </select>
+        <button class="btn btn-primary" style="flex: 1;" on:click={() => onStart(instance.id, selectedProxyId)}>
+          启动
+        </button>
+      </div>
     {:else}
       <button class="btn" style="flex: 1; border-color: var(--danger-color); color: var(--danger-color);" on:click={() => onStop(instance.id)}>
         停止
@@ -156,17 +152,22 @@
     border-radius: 0.25rem;
     font-size: 0.625rem;
   }
-  .btn-xs {
-    padding: 0.125rem 0.5rem;
-    font-size: 0.75rem;
-    background-color: white;
-    border: 1px solid var(--border-color);
-    border-radius: 0.25rem;
-    cursor: pointer;
-    color: var(--primary-color);
+  .start-group {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
   }
-  .btn-xs:hover {
-      background-color: #f8fafc;
+  .proxy-select {
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--text-main);
+    background: white;
+    cursor: pointer;
+    min-width: 0;
+    flex: 1;
+    appearance: auto;
   }
 
   /* Minimal Mode Styles */

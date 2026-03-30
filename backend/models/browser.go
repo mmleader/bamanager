@@ -10,6 +10,7 @@ type BrowserInstance struct {
 	UserDataDir  string    `json:"userDataDir"`  // 用户数据目录（核心指纹隔离）
 	Args         []string  `json:"args"`         // 自定义启动参数
 	Tags         []string  `json:"tags"`         // 标签（用于分类）
+	ProxyID      string    `json:"proxyId"`      // 关联的代理配置ID（空=不使用代理）
 	ProxyRegion  string    `json:"proxyRegion"`  // 代理IP归属地 (简要)
 	ProxyLatency int64     `json:"proxyLatency"` // 延迟 (ms)
 	ProxyDetail  string    `json:"proxyDetail"`  // 详细信息 (Tooltip)
